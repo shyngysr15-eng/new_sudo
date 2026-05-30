@@ -41,18 +41,20 @@ export const MainMenuPanel: React.FC = () => {
           </div>
 
           {/* 7x4 Mathematically Perfect Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1.5 flex-1 items-center">
+          <div className="grid grid-cols-7 gap-1 w-full h-full max-h-[72px] items-center justify-items-center overflow-hidden">
             {calendarDays.map((day) => (
               <div 
                 key={day.id}
-                className="flex items-center justify-center aspect-square"
+                className="w-5.5 h-5.5 flex items-center justify-center"
               >
-                {day.isToday ? (
-                  <div className="w-3.5 h-3.5 rounded bg-[#3498DB] border-2 border-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]" />
-                ) : day.active ? (
-                  <div className="w-3 h-3 rounded-full bg-black" />
+                {day.active ? (
+                  <div className="w-5 h-5 rounded bg-[#3498DB] text-white flex items-center justify-center text-[9px] font-black leading-none">
+                    {day.id + 1}
+                  </div>
                 ) : (
-                  <div className="w-2.5 h-2.5 rounded-full bg-neutral-200 border border-neutral-400" />
+                  <div className="text-[9px] font-bold text-neutral-500 flex items-center justify-center w-5 h-5 leading-none">
+                    {day.id + 1}
+                  </div>
                 )}
               </div>
             ))}
@@ -119,15 +121,15 @@ export const MainMenuPanel: React.FC = () => {
       {/* ========================================================================= */}
       <div className="relative z-10 w-full max-w-[328px] mx-auto grid grid-cols-2 gap-4 mb-5">
         
-        {/* BUTTON 1: DAILY CHALLENGES */}
-        <div className="relative h-[115px] col-span-1">
+        {/* BUTTON 1: DAILY CHALLENGES (SPANS BOTH COLUMNS) */}
+        <div className="relative h-[95px] col-span-2">
           <motion.button
             whileTap={{ x: 6, y: 6, boxShadow: '0px 0px 0px 0px rgba(0,0,0,1)' }}
-            className="absolute inset-0 bg-[#2ECC71] border-[3px] border-black rounded-xl flex flex-col items-center justify-center p-4 text-black outline-none cursor-pointer select-none transition-all duration-100 ease-out shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
+            className="absolute inset-0 bg-[#2ECC71] border-[3px] border-black rounded-xl flex flex-row items-center justify-center gap-4 p-5 text-black outline-none cursor-pointer select-none transition-all duration-100 ease-out shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
           >
             <Trophy className="w-8 h-8 stroke-[2px]" />
-            <span className="text-[12px] font-black uppercase tracking-wider mt-2">
-              Daily
+            <span className="text-[14px] font-black uppercase tracking-widest">
+              Daily Challenges
             </span>
           </motion.button>
         </div>
@@ -145,15 +147,15 @@ export const MainMenuPanel: React.FC = () => {
           </motion.button>
         </div>
 
-        {/* BUTTON 3: MULTIPLAYER (SPANS BOTH COLUMNS) */}
-        <div className="relative h-[95px] col-span-2">
+        {/* BUTTON 3: MULTIPLAYER */}
+        <div className="relative h-[115px] col-span-1">
           <motion.button
             whileTap={{ x: 6, y: 6, boxShadow: '0px 0px 0px 0px rgba(0,0,0,1)' }}
-            className="absolute inset-0 bg-[#E74C3C] border-[3px] border-black rounded-xl flex flex-row items-center justify-center gap-4 p-5 text-black outline-none cursor-pointer select-none transition-all duration-100 ease-out shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
+            className="absolute inset-0 bg-[#E74C3C] border-[3px] border-black rounded-xl flex flex-col items-center justify-center p-4 text-black outline-none cursor-pointer select-none transition-all duration-100 ease-out shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
           >
             <Users className="w-8 h-8 stroke-[2px]" />
-            <span className="text-[14px] font-black uppercase tracking-widest">
-              Multiplayer Battle
+            <span className="text-[12px] font-black uppercase tracking-wider mt-2">
+              Multiplayer
             </span>
           </motion.button>
         </div>
