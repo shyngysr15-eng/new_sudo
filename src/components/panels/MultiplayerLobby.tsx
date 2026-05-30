@@ -40,8 +40,26 @@ export const MultiplayerLobby: React.FC = () => {
   
   const channelRef = useRef<any>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  
   const nickname = profile?.nickname || 'Player';
+
+  const stateRef = useRef({
+    grid,
+    solution,
+    initial,
+    role,
+    nickname,
+  });
+
+  // Keep ref synchronized on every render to bypass React closure limitations in async broadcast callbacks
+  useEffect(() => {
+    stateRef.current = {
+      grid,
+      solution,
+      initial,
+      role,
+      nickname,
+    };
+  }, [grid, solution, initial, role, nickname]);
 
   // 1. Calculate and broadcast local progress
   const getProgress = (currentGrid: number[][]) => {
@@ -75,75 +93,99 @@ export const MultiplayerLobby: React.FC = () => {
 
   // 2. Setup Realtime Broadcast Channel
   const connectChannel = (code: string) => {
-    const channel = supabase.channel(`lobby_${code}`, {
-      config: {
-        broadcast: { self: false },
-      }
-    });
-
-    channel
-      .on('broadcast', { event: 'join' }, ({ payload }) => {
-        // HOST ONLY: Client joins, so host sends the board data
-        if (role === 'host') {
-          setOpponentName(payload.name);
-          setOpponentProgress(0);
-          
-          // Send grid data to sync client
-          channel.send({
-            type: 'broadcast',
-            event: 'start',
-            payload: {
-              name: nickname,
-              board: grid,
-              solution: solution,
-              initial: initial,
-            }
-          });
-          setMode('playing');
-        }
-      })
-      .on('broadcast', { event: 'start' }, ({ payload }) => {
-        // CLIENT ONLY: Host sent game grid config
-        if (role === 'client') {
-          setOpponentName(payload.name);
-          setOpponentProgress(0);
-          setGrid(payload.board);
-          setSolution(payload.solution);
-          setInitial(payload.initial);
-          setNotes(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [])));
-          setMistakes(0);
-          setTimer(0);
-          setMode('playing');
-        }
-      })
-      .on('broadcast', { event: 'progress' }, ({ payload }) => {
-        // Dynamic opponent tracking
-        setOpponentProgress(payload.progress);
-        if (!opponentName) {
-          setOpponentName(payload.name);
-        }
-      })
-      .on('broadcast', { event: 'win' }, ({ payload }) => {
-        // Defeat condition: opponent won
-        soundManager.playDefeat();
-        setMode('lost');
-        setOpponentProgress(100);
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`Connected to room lobby_${code}`);
-          if (role === 'client') {
-            // Send join alert to host
-            channel.send({
-              type: 'broadcast',
-              event: 'join',
-              payload: { name: nickname }
-            });
-          }
+    try {
+      const channel = supabase.channel(`lobby_${code}`, {
+        config: {
+          broadcast: { self: false },
         }
       });
 
-    channelRef.current = channel;
+      channel
+        .on('broadcast', { event: 'join' }, ({ payload }) => {
+          try {
+            const { role: latestRole, grid: latestGrid, solution: latestSolution, initial: latestInitial, nickname: latestNickname } = stateRef.current;
+            // HOST ONLY: Client joins, so host sends the board data
+            if (latestRole === 'host') {
+              setOpponentName(payload.name);
+              setOpponentProgress(0);
+              
+              // Send grid data to sync client
+              channel.send({
+                type: 'broadcast',
+                event: 'start',
+                payload: {
+                  name: latestNickname,
+                  board: latestGrid,
+                  solution: latestSolution,
+                  initial: latestInitial,
+                }
+              });
+              setMode('playing');
+            }
+          } catch (e: any) {
+            console.error("Error in realtime 'join' event:", e);
+          }
+        })
+        .on('broadcast', { event: 'start' }, ({ payload }) => {
+          try {
+            const { role: latestRole } = stateRef.current;
+            // CLIENT ONLY: Host sent game grid config
+            if (latestRole === 'client') {
+              setOpponentName(payload.name);
+              setOpponentProgress(0);
+              setGrid(payload.board);
+              setSolution(payload.solution);
+              setInitial(payload.initial);
+              setNotes(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [])));
+              setMistakes(0);
+              setTimer(0);
+              setMode('playing');
+            }
+          } catch (e: any) {
+            console.error("Error in realtime 'start' event:", e);
+          }
+        })
+        .on('broadcast', { event: 'progress' }, ({ payload }) => {
+          try {
+            setOpponentProgress(payload.progress);
+            if (!opponentName) {
+              setOpponentName(payload.name);
+            }
+          } catch (e: any) {
+            console.error("Error in realtime 'progress' event:", e);
+          }
+        })
+        .on('broadcast', { event: 'win' }, ({ payload }) => {
+          try {
+            soundManager.playDefeat();
+            setMode('lost');
+            setOpponentProgress(100);
+          } catch (e: any) {
+            console.error("Error in realtime 'win' event:", e);
+          }
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`Connected to room lobby_${code}`);
+            const { role: latestRole, nickname: latestNickname } = stateRef.current;
+            if (latestRole === 'client') {
+              // Send join alert to host
+              channel.send({
+                type: 'broadcast',
+                event: 'join',
+                payload: { name: latestNickname }
+              });
+            }
+          } else if (status === 'CHANNEL_ERROR') {
+            setErrorMsg("Realtime channel failed to connect. Please check internet connection.");
+          }
+        });
+
+      channelRef.current = channel;
+    } catch (err: any) {
+      console.error("Failed to connect channel:", err);
+      setErrorMsg("Failed to setup multiplayer channel: " + err.message);
+    }
   };
 
   // Cleanup channel on leave
@@ -172,38 +214,49 @@ export const MultiplayerLobby: React.FC = () => {
 
   // 4. Host Lobbies Creation
   const createLobby = () => {
-    soundManager.playClick();
-    setLoading(true);
-    setErrorMsg(null);
-    setRole('host');
+    try {
+      soundManager.playClick();
+      setLoading(true);
+      setErrorMsg(null);
+      setRole('host');
 
-    // Generate lobby code
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    setLobbyCode(code);
+      // Generate lobby code
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      setLobbyCode(code);
 
-    // Generate exact shared puzzle
-    const puzzle = generateSudoku('normal');
-    setGrid(puzzle.board.map((row) => [...row]));
-    setSolution(puzzle.solution);
-    setInitial(puzzle.board.map((row) => row.map((cell) => cell !== 0)));
+      // Generate exact shared puzzle
+      const puzzle = generateSudoku('normal');
+      setGrid(puzzle.board.map((row) => [...row]));
+      setSolution(puzzle.solution);
+      setInitial(puzzle.board.map((row) => row.map((cell) => cell !== 0)));
 
-    connectChannel(code);
-    setMode('waiting');
-    setLoading(false);
+      connectChannel(code);
+      setMode('waiting');
+      setLoading(false);
+    } catch (err: any) {
+      console.error("Multiplayer createLobby crashed:", err);
+      setErrorMsg("Failed to create lobby: " + (err.message || err));
+      setLoading(false);
+    }
   };
 
   // 5. Join Lobbies Entry
   const joinLobby = () => {
-    soundManager.playClick();
-    if (inputCode.length !== 4) {
-      setErrorMsg('Lobby code must be exactly 4 digits.');
-      return;
-    }
+    try {
+      soundManager.playClick();
+      if (inputCode.length !== 4) {
+        setErrorMsg('Lobby code must be exactly 4 digits.');
+        return;
+      }
 
-    setRole('client');
-    setLobbyCode(inputCode);
-    connectChannel(inputCode);
-    setMode('joining');
+      setRole('client');
+      setLobbyCode(inputCode);
+      connectChannel(inputCode);
+      setMode('joining');
+    } catch (err: any) {
+      console.error("Multiplayer joinLobby crashed:", err);
+      setErrorMsg("Failed to join lobby: " + (err.message || err));
+    }
   };
 
   const handleCellSelect = (r: number, c: number) => {
