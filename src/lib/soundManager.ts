@@ -56,53 +56,235 @@ class SoundManager {
     return this.isMuted;
   }
 
-  // 1. Crisp chiptune click blip
+  // 1. Crisp chiptune click blip (Default)
   playClick() {
+    this.playToggleClick();
+  }
+
+  // 2. Specialized: "Daily Challenges" click (woodblock pop + successful quest start arpeggio chime)
+  playDailyClick() {
+    this.initCtx();
+    if (!this.ctx || this.isMuted) return;
+
+    const now = this.ctx.currentTime;
+
+    // A. Crisp organic wood-block pop (Triangle sweep)
+    const popOsc = this.ctx.createOscillator();
+    const popGain = this.ctx.createGain();
+    popOsc.type = 'triangle';
+    popOsc.frequency.setValueAtTime(800, now);
+    popOsc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+    popGain.gain.setValueAtTime(0.35, now);
+    popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+    popOsc.connect(popGain);
+    popGain.connect(this.masterGain!);
+    popOsc.start(now);
+    popOsc.stop(now + 0.05);
+
+    // B. Successful quest start chime arpeggio (C5 -> E5 -> G5 -> C6)
+    const playChimeTone = (freq: number, delay: number, dur: number) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + delay);
+      
+      gain.gain.setValueAtTime(0, now + delay);
+      gain.gain.linearRampToValueAtTime(0.18, now + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      osc.start(now + delay);
+      osc.stop(now + delay + dur);
+    };
+
+    playChimeTone(523.25, 0.04, 0.22);  // C5
+    playChimeTone(659.25, 0.09, 0.22);  // E5
+    playChimeTone(783.99, 0.14, 0.22);  // G5
+    playChimeTone(1046.50, 0.19, 0.35); // C6
+  }
+
+  // 3. Specialized: "Custom Mode" click (mechanical keyboard switch plastic pop)
+  playCustomClick() {
+    this.initCtx();
+    if (!this.ctx || this.isMuted) return;
+
+    const now = this.ctx.currentTime;
+
+    // A. Main keyboard mechanical switch pop (Triangle sweep)
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'triangle';
+    osc1.frequency.setValueAtTime(650, now);
+    osc1.frequency.exponentialRampToValueAtTime(300, now + 0.03);
+    gain1.gain.setValueAtTime(0.2, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain!);
+    osc1.start(now);
+    osc1.stop(now + 0.03);
+
+    // B. High tactile plastic tick transient (Sine sweep)
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1200, now);
+    osc2.frequency.exponentialRampToValueAtTime(750, now + 0.01);
+    gain2.gain.setValueAtTime(0.12, now);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.01);
+
+    osc2.connect(gain2);
+    gain2.connect(this.masterGain!);
+    osc2.start(now);
+    osc2.stop(now + 0.01);
+  }
+
+  // 4. Specialized: "Multiplayer" click (8-bit retro sword clash + battle alert chime)
+  playMultiplayerClick() {
+    this.initCtx();
+    if (!this.ctx || this.isMuted) return;
+
+    const now = this.ctx.currentTime;
+
+    // A. Sword clash metallic high-pass sweep (Sawtooth and Square waves)
+    const clashSaw = this.ctx.createOscillator();
+    const clashSq = this.ctx.createOscillator();
+    const clashGain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(1000, now);
+
+    clashSaw.type = 'sawtooth';
+    clashSaw.frequency.setValueAtTime(2000, now);
+    clashSaw.frequency.exponentialRampToValueAtTime(300, now + 0.08);
+
+    clashSq.type = 'square';
+    clashSq.frequency.setValueAtTime(1800, now);
+    clashSq.frequency.exponentialRampToValueAtTime(100, now + 0.08);
+
+    clashGain.gain.setValueAtTime(0.15, now);
+    clashGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    clashSaw.connect(filter);
+    clashSq.connect(filter);
+    filter.connect(clashGain);
+    clashGain.connect(this.masterGain!);
+
+    clashSaw.start(now);
+    clashSq.start(now);
+    clashSaw.stop(now + 0.08);
+    clashSq.stop(now + 0.08);
+
+    // B. PVP Battle alert chime (A4 -> C5 low-fi arcade melody)
+    const playBattleTone = (freq: number, delay: number, dur: number) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + delay);
+      
+      gain.gain.setValueAtTime(0, now + delay);
+      gain.gain.linearRampToValueAtTime(0.2, now + delay + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      osc.start(now + delay);
+      osc.stop(now + delay + dur);
+    };
+
+    playBattleTone(440.00, 0.06, 0.12); // A4
+    playBattleTone(523.25, 0.12, 0.22); // C5
+  }
+
+  // 5. Specialized: Volume Switch & Small buttons (cute organic bubble pop)
+  playToggleClick() {
     this.initCtx();
     if (!this.ctx || this.isMuted) return;
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    
-    osc.type = 'triangle'; // softer than square
-    osc.frequency.setValueAtTime(600, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.08);
 
-    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+    osc.type = 'sine';
+    // Cute exponential bubble frequency sweep upwards
+    osc.frequency.setValueAtTime(350, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1100, this.ctx.currentTime + 0.04);
+
+    gain.gain.setValueAtTime(0.22, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
 
     osc.connect(gain);
     gain.connect(this.masterGain!);
     osc.start();
-    osc.stop(this.ctx.currentTime + 0.08);
+    osc.stop(this.ctx.currentTime + 0.04);
   }
 
-  // 2. Cozy major chime for correct placements
+  // 6. Cozy major chime for correct placements (Satisfying heavy stone block Minecraft thud + arpeggio tail!)
   playCorrect() {
     this.initCtx();
     if (!this.ctx || this.isMuted) return;
 
-    const playTone = (freq: number, delay: number, dur: number) => {
+    const now = this.ctx.currentTime;
+
+    // A. Satisfying Minecraft-style heavy stone thud ASMR
+    const thudOsc = this.ctx.createOscillator();
+    const thudGain = this.ctx.createGain();
+    const lpFilter = this.ctx.createBiquadFilter();
+
+    lpFilter.type = 'lowpass';
+    lpFilter.frequency.setValueAtTime(180, now); // lock to low frequency warmth
+
+    thudOsc.type = 'triangle';
+    thudOsc.frequency.setValueAtTime(130, now);
+    thudOsc.frequency.exponentialRampToValueAtTime(35, now + 0.14);
+
+    thudGain.gain.setValueAtTime(0.65, now);
+    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+    thudOsc.connect(lpFilter);
+    lpFilter.connect(thudGain);
+    thudGain.connect(this.masterGain!);
+
+    thudOsc.start(now);
+    thudOsc.stop(now + 0.14);
+
+    // B. Light woodblock dig transient
+    const digOsc = this.ctx.createOscillator();
+    const digGain = this.ctx.createGain();
+    digOsc.type = 'triangle';
+    digOsc.frequency.setValueAtTime(90, now);
+    digOsc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+    digGain.gain.setValueAtTime(0.4, now);
+    digGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    digOsc.connect(digGain);
+    digGain.connect(this.masterGain!);
+    digOsc.start(now);
+    digOsc.stop(now + 0.08);
+
+    // C. Elegant cozy chime tail
+    const playChimeTone = (freq: number, delay: number, dur: number) => {
       const osc = this.ctx!.createOscillator();
       const gain = this.ctx!.createGain();
-
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, this.ctx!.currentTime + delay);
+      osc.frequency.setValueAtTime(freq, now + delay);
       
-      gain.gain.setValueAtTime(0, this.ctx!.currentTime + delay);
-      gain.gain.linearRampToValueAtTime(0.25, this.ctx!.currentTime + delay + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.01, this.ctx!.currentTime + delay + dur);
+      gain.gain.setValueAtTime(0, now + delay);
+      gain.gain.linearRampToValueAtTime(0.15, now + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
 
       osc.connect(gain);
       gain.connect(this.masterGain!);
-      osc.start(this.ctx!.currentTime + delay);
-      osc.stop(this.ctx!.currentTime + delay + dur);
+      osc.start(now + delay);
+      osc.stop(now + delay + dur);
     };
 
-    // Major 3rd arpeggio chime (C5 -> E5 -> G5)
-    playTone(523.25, 0, 0.25);
-    playTone(659.25, 0.08, 0.25);
-    playTone(783.99, 0.16, 0.35);
+    // Major arpeggio tail starting right after the thud impact
+    playChimeTone(523.25, 0.02, 0.2);
+    playChimeTone(659.25, 0.08, 0.2);
+    playChimeTone(783.99, 0.14, 0.28);
   }
 
   // 3. Retro chiptune buzz for mistakes

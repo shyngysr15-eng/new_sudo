@@ -85,11 +85,19 @@ export const MainMenuPanel: React.FC = () => {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
     soundManager.setMute(nextMuted);
-    soundManager.playClick();
+    soundManager.playToggleClick();
   };
 
   const handleNavigate = (view: 'daily' | 'custom-select' | 'multiplayer-lobby') => {
-    soundManager.playClick();
+    if (view === 'daily') {
+      soundManager.playDailyClick();
+    } else if (view === 'custom-select') {
+      soundManager.playCustomClick();
+    } else if (view === 'multiplayer-lobby') {
+      soundManager.playMultiplayerClick();
+    } else {
+      soundManager.playClick();
+    }
     setView(view);
   };
 
