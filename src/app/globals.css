@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Custom Cozy-Sandbox Mobile Resets */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  background-color: #FAF6EE;
+  color: #171717;
+  
+  /* Disable elastic scroll rubber-banding on iOS Safari and pull-to-refresh on Android Chrome */
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
+  position: fixed;
+  
+  /* Smooth touch transitions */
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
+  
+  /* Prevent standard iOS pinch zooming */
+  touch-action: none;
+}
+
+/* Global pixel rendering support */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Subtle custom scrollbar styling for leaderboard list */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cdded2;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a9cca2;
+}
+
