@@ -1,11 +1,68 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SwipeContainer } from '../components/shell/SwipeContainer';
-import { Smartphone, Zap, Sparkles, MoveVertical, Hammer, Code } from 'lucide-react';
+import { Smartphone, Zap, Sparkles, MoveVertical, Hammer, Code, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { supabase } from '../lib/supabaseClient';
+import { useAuthStore } from '../store/useAuthStore';
+import { AuthGateway } from '../components/shell/AuthGateway';
 
 export default function Home() {
+  const { session, loading, setSession, setLoading, fetchProfile } = useAuthStore();
+
+  useEffect(() => {
+    // 1. Initial Session Retrieval
+    const checkSession = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+        if (currentSession?.user) {
+          await fetchProfile(currentSession.user.id);
+        }
+      } catch (err) {
+        console.error('Error fetching session:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
+
+    // 2. Auth State Change Listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      setSession(newSession);
+      if (newSession?.user) {
+        await fetchProfile(newSession.user.id);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [setSession, setLoading, fetchProfile]);
+
+  // Loading Screen (Tactile Neo-Brutalist design)
+  if (loading) {
+    return (
+      <div className="relative min-h-[100dvh] w-full bg-[#FAF6EE] flex flex-col items-center justify-center font-mono p-6">
+        <div className="p-6 bg-[#FFFDF9] border-[3px] border-black rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center gap-4 text-black">
+          <Loader2 className="w-10 h-10 animate-spin text-[#3498DB] stroke-[2.5px]" />
+          <span className="text-xs font-black uppercase tracking-wider">
+            Verifying Credentials...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in -> Render the Auth Gateway
+  if (!session) {
+    return <AuthGateway />;
+  }
+
+  // Logged in -> Render Main Workspace Wrapper
   return (
     <div className="relative min-h-[100dvh] w-full bg-[#FAF6EE] flex items-center justify-center overflow-hidden font-mono p-0 md:p-8">
       
