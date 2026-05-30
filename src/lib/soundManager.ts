@@ -13,6 +13,7 @@ class SoundManager {
   private isMuted: boolean = false;
   private bgmNotes: number[] = [261.63, 293.66, 329.63, 392.00, 440.00]; // Cozy C major pentatonic (C4, D4, E4, G4, A4)
   private bgmIndex: number = 0;
+  private clickBuffer: AudioBuffer | null = null;
 
   constructor() {
     // Lazy-load AudioContext to comply with browser autoplay policies
@@ -30,6 +31,18 @@ class SoundManager {
     }
   }
 
+  private async loadClickSound() {
+    if (this.clickBuffer || !this.ctx) return;
+    try {
+      const response = await fetch('/mixkit-cool-interface-click-tone-2568.mp3');
+      const arrayBuffer = await response.arrayBuffer();
+      // Decode audio data safely in browser
+      this.clickBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+    } catch (e) {
+      console.error('Failed to load or decode static click sound:', e);
+    }
+  }
+
   private initCtx() {
     if (!this.ctx) {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -39,6 +52,9 @@ class SoundManager {
       // Set initial volume
       this.masterGain.gain.value = this.isMuted ? 0 : 0.15; // cozy soft volume
       this.masterGain.connect(this.ctx.destination);
+
+      // Eagerly load the MP3 sound file
+      this.loadClickSound();
     }
     
     if (this.ctx && this.ctx.state === 'suspended') {
@@ -87,169 +103,54 @@ class SoundManager {
     return this.isMuted;
   }
 
-  // 1. Crisp chiptune click blip (Default)
-  playClick() {
-    this.playToggleClick();
-  }
-
-  // 2. Specialized: "Daily Challenges" click (woodblock pop + successful quest start arpeggio chime)
-  playDailyClick() {
+  private playMp3Click() {
     this.initCtx();
     if (!this.ctx || this.isMuted) return;
 
-    const now = this.ctx.currentTime;
-
-    // A. Crisp organic wood-block pop (Triangle sweep)
-    const popOsc = this.ctx.createOscillator();
-    const popGain = this.ctx.createGain();
-    popOsc.type = 'triangle';
-    popOsc.frequency.setValueAtTime(800, now);
-    popOsc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
-    popGain.gain.setValueAtTime(0.35, now);
-    popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-
-    popOsc.connect(popGain);
-    popGain.connect(this.masterGain!);
-    popOsc.start(now);
-    popOsc.stop(now + 0.05);
-
-    // B. Successful quest start chime arpeggio (C5 -> E5 -> G5 -> C6)
-    const playChimeTone = (freq: number, delay: number, dur: number) => {
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
+    if (this.clickBuffer) {
+      const source = this.ctx.createBufferSource();
+      source.buffer = this.clickBuffer;
+      source.connect(this.masterGain!);
+      source.start();
+    } else {
+      // Fallback bubble pop if buffer isn't loaded yet
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + delay);
-      
-      gain.gain.setValueAtTime(0, now + delay);
-      gain.gain.linearRampToValueAtTime(0.18, now + delay + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
-
+      osc.frequency.setValueAtTime(350, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1100, this.ctx.currentTime + 0.04);
+      gain.gain.setValueAtTime(0.22, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
       osc.connect(gain);
       gain.connect(this.masterGain!);
-      osc.start(now + delay);
-      osc.stop(now + delay + dur);
-    };
-
-    playChimeTone(523.25, 0.04, 0.22);  // C5
-    playChimeTone(659.25, 0.09, 0.22);  // E5
-    playChimeTone(783.99, 0.14, 0.22);  // G5
-    playChimeTone(1046.50, 0.19, 0.35); // C6
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.04);
+    }
   }
 
-  // 3. Specialized: "Custom Mode" click (mechanical keyboard switch plastic pop)
+  // 1. Crisp click blip (Default)
+  playClick() {
+    this.playMp3Click();
+  }
+
+  // 2. Specialized: "Daily Challenges" click (Now mapped to MP3)
+  playDailyClick() {
+    this.playMp3Click();
+  }
+
+  // 3. Specialized: "Custom Mode" click (Now mapped to MP3)
   playCustomClick() {
-    this.initCtx();
-    if (!this.ctx || this.isMuted) return;
-
-    const now = this.ctx.currentTime;
-
-    // A. Main keyboard mechanical switch pop (Triangle sweep)
-    const osc1 = this.ctx.createOscillator();
-    const gain1 = this.ctx.createGain();
-    osc1.type = 'triangle';
-    osc1.frequency.setValueAtTime(650, now);
-    osc1.frequency.exponentialRampToValueAtTime(300, now + 0.03);
-    gain1.gain.setValueAtTime(0.2, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-
-    osc1.connect(gain1);
-    gain1.connect(this.masterGain!);
-    osc1.start(now);
-    osc1.stop(now + 0.03);
-
-    // B. High tactile plastic tick transient (Sine sweep)
-    const osc2 = this.ctx.createOscillator();
-    const gain2 = this.ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1200, now);
-    osc2.frequency.exponentialRampToValueAtTime(750, now + 0.01);
-    gain2.gain.setValueAtTime(0.12, now);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.01);
-
-    osc2.connect(gain2);
-    gain2.connect(this.masterGain!);
-    osc2.start(now);
-    osc2.stop(now + 0.01);
+    this.playMp3Click();
   }
 
-  // 4. Specialized: "Multiplayer" click (8-bit retro sword clash + battle alert chime)
+  // 4. Specialized: "Multiplayer" click (Now mapped to MP3)
   playMultiplayerClick() {
-    this.initCtx();
-    if (!this.ctx || this.isMuted) return;
-
-    const now = this.ctx.currentTime;
-
-    // A. Sword clash metallic high-pass sweep (Sawtooth and Square waves)
-    const clashSaw = this.ctx.createOscillator();
-    const clashSq = this.ctx.createOscillator();
-    const clashGain = this.ctx.createGain();
-    const filter = this.ctx.createBiquadFilter();
-
-    filter.type = 'highpass';
-    filter.frequency.setValueAtTime(1000, now);
-
-    clashSaw.type = 'sawtooth';
-    clashSaw.frequency.setValueAtTime(2000, now);
-    clashSaw.frequency.exponentialRampToValueAtTime(300, now + 0.08);
-
-    clashSq.type = 'square';
-    clashSq.frequency.setValueAtTime(1800, now);
-    clashSq.frequency.exponentialRampToValueAtTime(100, now + 0.08);
-
-    clashGain.gain.setValueAtTime(0.15, now);
-    clashGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-
-    clashSaw.connect(filter);
-    clashSq.connect(filter);
-    filter.connect(clashGain);
-    clashGain.connect(this.masterGain!);
-
-    clashSaw.start(now);
-    clashSq.start(now);
-    clashSaw.stop(now + 0.08);
-    clashSq.stop(now + 0.08);
-
-    // B. PVP Battle alert chime (A4 -> C5 low-fi arcade melody)
-    const playBattleTone = (freq: number, delay: number, dur: number) => {
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now + delay);
-      
-      gain.gain.setValueAtTime(0, now + delay);
-      gain.gain.linearRampToValueAtTime(0.2, now + delay + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
-
-      osc.connect(gain);
-      gain.connect(this.masterGain!);
-      osc.start(now + delay);
-      osc.stop(now + delay + dur);
-    };
-
-    playBattleTone(440.00, 0.06, 0.12); // A4
-    playBattleTone(523.25, 0.12, 0.22); // C5
+    this.playMp3Click();
   }
 
-  // 5. Specialized: Volume Switch & Small buttons (cute organic bubble pop)
+  // 5. Specialized: Volume Switch & Small buttons (Now mapped to MP3)
   playToggleClick() {
-    this.initCtx();
-    if (!this.ctx || this.isMuted) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sine';
-    // Cute exponential bubble frequency sweep upwards
-    osc.frequency.setValueAtTime(350, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1100, this.ctx.currentTime + 0.04);
-
-    gain.gain.setValueAtTime(0.22, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
-
-    osc.connect(gain);
-    gain.connect(this.masterGain!);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.04);
+    this.playMp3Click();
   }
 
   // 6. Cozy major chime for correct placements (Satisfying heavy stone block Minecraft thud + arpeggio tail!)
