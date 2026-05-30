@@ -4,12 +4,17 @@ import React, { useEffect, useRef } from 'react';
 import { motion, useMotionValue, animate } from 'framer-motion';
 import { useDrag, useWheel } from '@use-gesture/react';
 import { useNavigationStore } from '../../store/useNavigationStore';
+import { useGameStore } from '../../store/useGameStore';
 import ProfilePanel from '../panels/ProfilePanel';
 import MainMenuPanel from '../panels/MainMenuPanel';
 import LeaderboardPanel from '../panels/LeaderboardPanel';
+import { SudokuBoard } from '../panels/SudokuBoard';
+import { DifficultySelector } from '../panels/DifficultySelector';
+import { MultiplayerLobby } from '../panels/MultiplayerLobby';
 
 export const SwipeContainer: React.FC = () => {
   const { activeIndex, isAnimating, setAnimating, next, prev } = useNavigationStore();
+  const { activeView } = useGameStore();
   const containerRef = useRef<HTMLDivElement>(null);
   
   // High-performance Framer Motion value for vertical offsets
@@ -46,6 +51,8 @@ export const SwipeContainer: React.FC = () => {
 
   // Keyboard navigation for power-users (Arrow keys)
   useEffect(() => {
+    if (activeView !== null) return; // Disable keyboard panels swipe when inside game
+    
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isAnimating) return;
       if (e.key === 'ArrowUp') {
@@ -57,22 +64,21 @@ export const SwipeContainer: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAnimating, activeIndex]);
+  }, [isAnimating, activeIndex, activeView]);
 
   // Touch Swipe Gesture Processing (ignores micro-swipes to avoid false triggers)
   const bindDrag = useDrag(
     ({ active, movement: [, my], velocity: [, vy], direction: [, dy], cancel, event }) => {
-      // Allow standard scrolling inside scrollable leaderboard container without capturing swipe
+      if (activeView !== null) return; // Disable drag swipes during active gameplay
+
       const target = event.target as HTMLElement;
       if (target.closest('.overflow-y-auto') && !target.closest('.overflow-y-auto')?.classList.contains('select-none')) {
-        // If the element inside is scrollable, let it scroll.
-        // We only trigger swipe if at the bounds of that scrollable area.
         const scrollEl = target.closest('.overflow-y-auto') as HTMLElement;
         const isAtTop = scrollEl.scrollTop <= 0;
         const isAtBottom = Math.abs(scrollEl.scrollHeight - scrollEl.clientHeight - scrollEl.scrollTop) < 2;
 
-        if (dy > 0 && !isAtTop) return; // Scroll down, but not at top
-        if (dy < 0 && !isAtBottom) return; // Scroll up, but not at bottom
+        if (dy > 0 && !isAtTop) return; 
+        if (dy < 0 && !isAtBottom) return; 
       }
 
       if (isAnimating) {
@@ -81,14 +87,12 @@ export const SwipeContainer: React.FC = () => {
       }
 
       if (active) {
-        // Linear drag offset mapping directly to GPU
         y.set(my);
       } else {
         const containerHeight = containerRef.current?.clientHeight || window.innerHeight;
-        const threshold = containerHeight * 0.22; // 22% viewport height threshold
-        const isFastSwipe = vy > 0.45; // 0.45px/ms swipe velocity
+        const threshold = containerHeight * 0.22;
+        const isFastSwipe = vy > 0.45;
 
-        // Touch intent: Ignore micro-swipes (less than 20px) to prevent accidental snaps
         if (Math.abs(my) < 20) {
           animate(y, 0, { type: 'spring', stiffness: 450, damping: 40 });
           return;
@@ -99,7 +103,6 @@ export const SwipeContainer: React.FC = () => {
         } else if (my > threshold || (isFastSwipe && dy > 0)) {
           triggerTransition('prev');
         } else {
-          // Bounce back rubber-band style
           setAnimating(true);
           animate(y, 0, {
             type: 'spring',
@@ -117,20 +120,20 @@ export const SwipeContainer: React.FC = () => {
     }
   );
 
-  // Mouse wheel and desktop trackpad swipe scrolling (accumulates delta to detect swipe intent)
+  // Mouse wheel and trackpad accumulation swipe scrolling
   const bindWheel = useWheel(
     ({ active, delta: [, dy], memo = 0 }) => {
-      if (isAnimating) return memo;
+      if (activeView !== null || isAnimating) return memo; // Block scrolling inside game
 
       const accumulated = memo + dy;
-      const threshold = 140; // Trackpad sweep threshold to prevent accidental multiple flips
+      const threshold = 140; 
 
       if (accumulated > threshold) {
         triggerTransition('next');
-        return 0; // reset
+        return 0; 
       } else if (accumulated < -threshold) {
         triggerTransition('prev');
-        return 0; // reset
+        return 0; 
       }
 
       return accumulated;
@@ -140,6 +143,18 @@ export const SwipeContainer: React.FC = () => {
     }
   );
 
+  // If a game view is active, render it directly and skip swiper layout completely
+  if (activeView !== null) {
+    return (
+      <div className="relative w-full h-full overflow-hidden bg-[#FFF9E6]">
+        {activeView === 'daily' && <SudokuBoard />}
+        {activeView === 'custom-select' && <DifficultySelector />}
+        {activeView === 'custom-play' && <SudokuBoard />}
+        {(activeView === 'multiplayer-lobby' || activeView === 'multiplayer-play') && <MultiplayerLobby />}
+      </div>
+    );
+  }
+
   // Map panel index to dynamic Y translate offset based on activeIndex
   const getPanelOffset = (panelIdx: number) => {
     const prevIdx = (activeIndex - 1 + 3) % 3;
@@ -148,7 +163,7 @@ export const SwipeContainer: React.FC = () => {
     if (panelIdx === activeIndex) return '0%';
     if (panelIdx === prevIdx) return '-100%';
     if (panelIdx === nextIdx) return '100%';
-    return '100%'; // fallback
+    return '100%'; 
   };
 
   return (
