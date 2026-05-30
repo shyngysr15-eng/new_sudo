@@ -4,15 +4,18 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore, DifficultyMode } from '../../store/useGameStore';
 import { ArrowLeft, Play, AlertCircle } from 'lucide-react';
+import { soundManager } from '../../lib/soundManager';
 
 export const DifficultySelector: React.FC = () => {
   const { difficulty, setDifficulty, setView, resetGameStore } = useGameStore();
 
   const handleDifficultySelect = (mode: DifficultyMode) => {
+    soundManager.playClick();
     setDifficulty(mode);
   };
 
   const startGame = () => {
+    soundManager.playClick();
     setView('custom-play');
   };
 
@@ -22,7 +25,10 @@ export const DifficultySelector: React.FC = () => {
       {/* 🏛️ HEADER CONTROLS */}
       <div className="relative z-10 w-full flex items-center justify-start mt-2 border-b border-black pb-3">
         <button 
-          onClick={resetGameStore}
+          onClick={() => {
+            soundManager.playClick();
+            resetGameStore();
+          }}
           className="w-9 h-9 rounded-lg border-2 border-black bg-[#FFFDF9] flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] cursor-pointer outline-none transition-all duration-75 mr-4"
         >
           <ArrowLeft className="w-4 h-4 text-black stroke-[2.5px]" />

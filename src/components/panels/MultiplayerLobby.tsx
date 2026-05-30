@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useGameStore } from '../../store/useGameStore';
 import { generateSudoku, isValid } from '../../lib/sudokuGenerator';
+import { soundManager } from '../../lib/soundManager';
 import { 
   Users, ArrowLeft, Plus, LogIn, Trophy, Clock, 
   AlertTriangle, CheckCircle, Sparkles, Send, ShieldAlert,
@@ -124,6 +125,7 @@ export const MultiplayerLobby: React.FC = () => {
       })
       .on('broadcast', { event: 'win' }, ({ payload }) => {
         // Defeat condition: opponent won
+        soundManager.playDefeat();
         setMode('lost');
         setOpponentProgress(100);
       })
@@ -170,6 +172,7 @@ export const MultiplayerLobby: React.FC = () => {
 
   // 4. Host Lobbies Creation
   const createLobby = () => {
+    soundManager.playClick();
     setLoading(true);
     setErrorMsg(null);
     setRole('host');
@@ -191,6 +194,7 @@ export const MultiplayerLobby: React.FC = () => {
 
   // 5. Join Lobbies Entry
   const joinLobby = () => {
+    soundManager.playClick();
     if (inputCode.length !== 4) {
       setErrorMsg('Lobby code must be exactly 4 digits.');
       return;
@@ -204,6 +208,7 @@ export const MultiplayerLobby: React.FC = () => {
 
   const handleCellSelect = (r: number, c: number) => {
     if (mode !== 'playing') return;
+    soundManager.playClick();
     setSelected([r, c]);
   };
 
@@ -216,6 +221,7 @@ export const MultiplayerLobby: React.FC = () => {
 
     if (pencilMode) {
       // notes mode
+      soundManager.playClick();
       const cellNotes = [...notes[row][col]];
       if (cellNotes.includes(num)) {
         setNotes((prev) => {
@@ -245,6 +251,7 @@ export const MultiplayerLobby: React.FC = () => {
 
       const correct = num === solution[row][col];
       if (correct) {
+        soundManager.playCorrect();
         const nextGrid = grid.map((r) => [...r]);
         nextGrid[row][col] = num;
         setGrid(nextGrid);
@@ -254,6 +261,7 @@ export const MultiplayerLobby: React.FC = () => {
 
         if (currentProgress >= 100) {
           // VICTORY: Solve completely!
+          soundManager.playVictory();
           setMode('won');
           if (channelRef.current) {
             channelRef.current.send({
@@ -265,10 +273,12 @@ export const MultiplayerLobby: React.FC = () => {
           awardVictoryXP();
         }
       } else {
+        soundManager.playError();
         const nextMistakes = mistakes + 1;
         setMistakes(nextMistakes);
         if (nextMistakes >= 3) {
           // Auto-defeat if mistakes equal 3
+          soundManager.playDefeat();
           setMode('lost');
         }
       }
@@ -280,6 +290,7 @@ export const MultiplayerLobby: React.FC = () => {
     const [row, col] = selected;
     if (initial[row][col]) return;
 
+    soundManager.playClick();
     setGrid((prev) => {
       const next = prev.map((r) => [...r]);
       next[row][col] = 0;
@@ -328,6 +339,7 @@ export const MultiplayerLobby: React.FC = () => {
   };
 
   const handleBackToMenu = () => {
+    soundManager.playClick();
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
@@ -545,7 +557,10 @@ export const MultiplayerLobby: React.FC = () => {
           {/* 🛠️ PLAY TOOLS ROW (Notes, Erase) */}
           <div className="w-full flex justify-center gap-4 my-2">
             <button
-              onClick={() => setPencilMode(!pencilMode)}
+              onClick={() => {
+                soundManager.playClick();
+                setPencilMode(!pencilMode);
+              }}
               className={`w-14 h-11 border-2 border-black rounded-xl flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-[2.5px_2.5px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all duration-75 ${
                 pencilMode ? 'bg-[#FFD369]' : 'bg-[#FFFDF9]'
               }`}

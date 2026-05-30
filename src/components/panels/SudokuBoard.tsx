@@ -6,6 +6,7 @@ import { generateSudoku, isValid } from '../../lib/sudokuGenerator';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useGameStore } from '../../store/useGameStore';
 import { supabase } from '../../lib/supabaseClient';
+import { soundManager } from '../../lib/soundManager';
 import { 
   Trophy, ArrowLeft, RefreshCw, Edit3, Trash2, 
   Clock, AlertTriangle, CheckCircle, Sparkles 
@@ -82,11 +83,7 @@ export const SudokuBoard: React.FC = () => {
   // 4. Handle Cell Selection
   const selectCell = (row: number, col: number) => {
     if (status !== 'playing') return;
-    if (initial[row][col]) {
-      // Cannot edit original clue values, but can select them to see highlights!
-      setSelected([row, col]);
-      return;
-    }
+    soundManager.playClick();
     setSelected([row, col]);
   };
 
@@ -95,23 +92,24 @@ export const SudokuBoard: React.FC = () => {
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
         if (currentGrid[r][c] !== solution[r][c]) {
-          return false; // incomplete or incorrect
+          return false; 
         }
       }
     }
-    return true; // perfectly matching solution!
+    return true; 
   };
 
   // 6. Handle Database Saving and XP Awards on Win
   const handleVictory = async (finalTime: number) => {
     setStatus('won');
+    soundManager.playVictory();
     if (!user) return;
 
     setSavingDb(true);
     setErrorMessage(null);
 
     // Calculate XP
-    let xp = 150; // default for Daily normal
+    let xp = 150; 
     if (difficulty === 'easy') xp = 50;
     if (difficulty === 'medium') xp = 100;
     if (difficulty === 'hard') xp = 200;
@@ -120,7 +118,6 @@ export const SudokuBoard: React.FC = () => {
 
     try {
       if (difficulty === 'normal') {
-        // Daily Challenge - strict database check to prevent multiple daily records
         const todayStr = new Date().toISOString().split('T')[0];
         
         const { error: dailyErr } = await supabase.from('daily_solves').insert({
@@ -130,7 +127,7 @@ export const SudokuBoard: React.FC = () => {
         });
 
         if (dailyErr) {
-          if (dailyErr.code === '23505') { // Postgres Unique Violation
+          if (dailyErr.code === '23505') { 
             setErrorMessage("You have already logged a Daily Solve today! XP was not re-awarded.");
             setSavingDb(false);
             return;
@@ -167,6 +164,7 @@ export const SudokuBoard: React.FC = () => {
 
     if (pencilMode) {
       // PENCIL MARKS / NOTES MODE
+      soundManager.playClick();
       const currentNotes = [...notes[row][col]];
       if (currentNotes.includes(num)) {
         // Remove note
@@ -202,6 +200,7 @@ export const SudokuBoard: React.FC = () => {
 
       if (isCorrect) {
         // Set correct value
+        soundManager.playCorrect();
         const newGrid = grid.map((r) => [...r]);
         newGrid[row][col] = num;
         setGrid(newGrid);
@@ -212,15 +211,13 @@ export const SudokuBoard: React.FC = () => {
         }
       } else {
         // Mistake!
+        soundManager.playError();
         const nextMistakes = mistakes + 1;
         setMistakes(nextMistakes);
         
         if (nextMistakes >= 3) {
+          soundManager.playDefeat();
           setStatus('lost');
-        } else {
-          // Temporarily set value and show mistake visual conflict, then clear?
-          // Or just increment mistake counter and don't place it to prevent guessing cheats!
-          // We don't place incorrect values.
         }
       }
     }
@@ -231,6 +228,8 @@ export const SudokuBoard: React.FC = () => {
     if (status !== 'playing' || !selected) return;
     const [row, col] = selected;
     if (initial[row][col]) return;
+    
+    soundManager.playClick();
 
     setGrid((prev) => {
       const next = prev.map((r) => [...r]);
@@ -245,15 +244,17 @@ export const SudokuBoard: React.FC = () => {
     });
   };
 
+  const handleBackToMenu = () => {
+    soundManager.playClick();
+    resetGameStore();
+  };
+
   // Helper check for highlighted connections (row, col, box)
   const isHighlighted = (r: number, c: number) => {
     if (!selected) return false;
     const [selRow, selCol] = selected;
-    
-    // Equal row or equal column
     if (r === selRow || c === selCol) return true;
     
-    // Equal 3x3 box
     const selBoxRow = selRow - (selRow % 3);
     const selBoxCol = selCol - (selCol % 3);
     const cellBoxRow = r - (r % 3);
@@ -265,10 +266,10 @@ export const SudokuBoard: React.FC = () => {
   return (
     <div className="w-full h-full text-black flex flex-col justify-between p-6 select-none bg-[#FFF9E6]">
       
-      {/* 🏛️ HEADER CONTROLS */}
+      {/* 🏛 ... HEADER CONTROLS */}
       <div className="relative z-10 w-full flex justify-between items-center mt-2 border-b border-black pb-3">
         <button 
-          onClick={resetGameStore}
+          onClick={handleBackToMenu}
           className="w-9 h-9 rounded-lg border-2 border-black bg-[#FFFDF9] flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] cursor-pointer outline-none transition-all duration-75"
         >
           <ArrowLeft className="w-4 h-4 text-black stroke-[2.5px]" />
@@ -309,7 +310,6 @@ export const SudokuBoard: React.FC = () => {
                 const isSelected = selected && selected[0] === rIdx && selected[1] === cIdx;
                 const isLinked = isHighlighted(rIdx, cIdx);
                 
-                // Border styles to separate 3x3 major boxes
                 const borderRight = (cIdx === 2 || cIdx === 5) ? 'border-r-2 border-black' : '';
                 const borderBottom = (rIdx === 2 || rIdx === 5) ? 'border-b-2 border-black' : '';
 
@@ -329,13 +329,11 @@ export const SudokuBoard: React.FC = () => {
                       transition-colors duration-100
                     `}
                   >
-                    {/* Render grid cell value */}
                     {val !== 0 ? (
                       <span className={isClue ? 'text-black font-extrabold' : 'text-[#3498DB]'}>
                         {val}
                       </span>
                     ) : (
-                      // Render Pencil Mark Notes Grid
                       <div className="absolute inset-0.5 grid grid-cols-3 grid-rows-3 gap-0 text-[7px] text-neutral-500 font-bold leading-none select-none">
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                           <div key={n} className="flex items-center justify-center">
@@ -354,7 +352,10 @@ export const SudokuBoard: React.FC = () => {
           <div className="w-full flex justify-center gap-4 my-5">
             {/* Note-Taking Mode Toggle */}
             <button
-              onClick={() => setPencilMode(!pencilMode)}
+              onClick={() => {
+                soundManager.playClick();
+                setPencilMode(!pencilMode);
+              }}
               className={`w-14 h-12 border-2 border-black rounded-xl flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all duration-75 ${
                 pencilMode ? 'bg-[#FFD369]' : 'bg-[#FFFDF9]'
               }`}
@@ -391,7 +392,7 @@ export const SudokuBoard: React.FC = () => {
         </div>
       ) : status === 'won' ? (
         
-        // 🏆 VICTORY PANEL SCREEN MAPPED IN GORGEOUS RPG STYLE
+        // 🏆 VICTORY PANEL
         <div className="flex-1 flex flex-col justify-center items-center text-center p-4">
           <motion.div 
             initial={{ scale: 0.8, rotate: -3 }}
@@ -411,13 +412,11 @@ export const SudokuBoard: React.FC = () => {
               <CheckCircle className="w-4 h-4" /> Perfect Solve Verified
             </p>
 
-            {/* Timer Result info */}
             <div className="my-5 p-3 border-2 border-black bg-neutral-50 rounded-xl flex justify-between text-xs font-black uppercase">
               <span className="text-neutral-500">Solve Time:</span>
               <span>{formatTime(timer)}</span>
             </div>
 
-            {/* database saving load / error */}
             {savingDb ? (
               <div className="mb-4 text-xs font-black uppercase text-neutral-500 animate-pulse">
                 Saving score to Supabase Leaderboard...
@@ -436,7 +435,7 @@ export const SudokuBoard: React.FC = () => {
             )}
 
             <button
-              onClick={resetGameStore}
+              onClick={handleBackToMenu}
               className="w-full py-3.5 border-2 border-black bg-[#2ECC71] text-black font-black uppercase tracking-wider text-xs rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] cursor-pointer outline-none transition-all duration-75"
             >
               Back to Main Menu
@@ -468,7 +467,7 @@ export const SudokuBoard: React.FC = () => {
             </div>
 
             <button
-              onClick={resetGameStore}
+              onClick={handleBackToMenu}
               className="w-full py-3.5 border-2 border-black bg-neutral-200 text-black font-black uppercase tracking-wider text-xs rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] cursor-pointer outline-none transition-all duration-75"
             >
               Back to Main Menu
