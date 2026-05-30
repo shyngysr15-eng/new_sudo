@@ -140,23 +140,16 @@ export const SwipeContainer: React.FC = () => {
     }
   );
 
-  // Map 0: Profile, 1: Main Menu, 2: Leaderboard
-  const getPanel = (idx: number) => {
-    switch (idx) {
-      case 0:
-        return <ProfilePanel />;
-      case 1:
-        return <MainMenuPanel />;
-      case 2:
-        return <LeaderboardPanel />;
-      default:
-        return null;
-    }
-  };
+  // Map panel index to dynamic Y translate offset based on activeIndex
+  const getPanelOffset = (panelIdx: number) => {
+    const prevIdx = (activeIndex - 1 + 3) % 3;
+    const nextIdx = (activeIndex + 1) % 3;
 
-  // Determine virtual layout positions (Previous at -100%, Active at 0%, Next at 100%)
-  const prevIdx = (activeIndex - 1 + 3) % 3;
-  const nextIdx = (activeIndex + 1) % 3;
+    if (panelIdx === activeIndex) return '0%';
+    if (panelIdx === prevIdx) return '-100%';
+    if (panelIdx === nextIdx) return '100%';
+    return '100%'; // fallback
+  };
 
   return (
     <div 
@@ -170,28 +163,28 @@ export const SwipeContainer: React.FC = () => {
         style={{ y, translateZ: 0 }}
         className="absolute inset-0 w-full h-full will-change-transform transform-gpu"
       >
-        {/* Previous Panel Wrapper */}
+        {/* Profile Panel (Permanently Mounted) */}
         <div 
           className="absolute left-0 top-0 w-full h-full"
-          style={{ transform: 'translate3d(0, -100%, 0)' }}
+          style={{ transform: `translate3d(0, ${getPanelOffset(0)}, 0)` }}
         >
-          {getPanel(prevIdx)}
+          <ProfilePanel />
         </div>
 
-        {/* Active Panel Wrapper */}
+        {/* Main Menu Panel (Permanently Mounted) */}
         <div 
           className="absolute left-0 top-0 w-full h-full"
-          style={{ transform: 'translate3d(0, 0%, 0)' }}
+          style={{ transform: `translate3d(0, ${getPanelOffset(1)}, 0)` }}
         >
-          {getPanel(activeIndex)}
+          <MainMenuPanel />
         </div>
 
-        {/* Next Panel Wrapper */}
+        {/* Leaderboard Panel (Permanently Mounted) */}
         <div 
           className="absolute left-0 top-0 w-full h-full"
-          style={{ transform: 'translate3d(0, 100%, 0)' }}
+          style={{ transform: `translate3d(0, ${getPanelOffset(2)}, 0)` }}
         >
-          {getPanel(nextIdx)}
+          <LeaderboardPanel />
         </div>
       </motion.div>
 
