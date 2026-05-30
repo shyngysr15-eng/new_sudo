@@ -13,7 +13,7 @@ export const MainMenuPanel: React.FC = () => {
   const { setView } = useGameStore();
 
   // Unified audio mute state
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [realSolves, setRealSolves] = useState<any[]>([]);
   const [streak, setStreak] = useState(0);
 

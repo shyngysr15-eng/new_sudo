@@ -35,11 +35,30 @@ class SoundManager {
     if (this.clickBuffer || !this.ctx) return;
     try {
       const response = await fetch('/mixkit-cool-interface-click-tone-2568.mp3');
+      if (!response.ok) {
+        throw new Error(`HTTP error fetching sound file: ${response.status} ${response.statusText}`);
+      }
       const arrayBuffer = await response.arrayBuffer();
-      // Decode audio data safely in browser
-      this.clickBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+      
+      // Dual-syntax safe decodeAudioData to guarantee compatibility with all Safari, iOS, Chrome, and Android webviews
+      this.clickBuffer = await new Promise<AudioBuffer>((resolve, reject) => {
+        try {
+          const promise = this.ctx!.decodeAudioData(
+            arrayBuffer,
+            (buffer) => resolve(buffer),
+            (err) => reject(err)
+          );
+          // Handle browsers returning standard Promise
+          if (promise && typeof (promise as any).catch === 'function') {
+            (promise as any).catch((err: any) => reject(err));
+          }
+        } catch (e) {
+          reject(e);
+        }
+      });
+      console.log('✅ Click sound buffer successfully loaded and decoded.');
     } catch (e) {
-      console.error('Failed to load or decode static click sound:', e);
+      console.error('❌ Failed to load or decode static click sound:', e);
     }
   }
 
