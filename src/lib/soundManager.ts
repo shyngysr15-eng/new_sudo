@@ -18,19 +18,50 @@ class SoundManager {
     // Lazy-load AudioContext to comply with browser autoplay policies
     if (typeof window !== 'undefined') {
       this.isMuted = localStorage.getItem('sudoku_muted') === 'true';
+
+      // Setup a global click/touchstart handler to transition AudioContext out of 'suspended' state on first tap
+      const handleGesture = () => {
+        this.resumeContext();
+        window.removeEventListener('click', handleGesture);
+        window.removeEventListener('touchstart', handleGesture);
+      };
+      window.addEventListener('click', handleGesture, { passive: true });
+      window.addEventListener('touchstart', handleGesture, { passive: true });
     }
   }
 
   private initCtx() {
-    if (this.ctx) return;
+    if (!this.ctx) {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      this.ctx = new AudioContextClass();
+      
+      this.masterGain = this.ctx.createGain();
+      // Set initial volume
+      this.masterGain.gain.value = this.isMuted ? 0 : 0.15; // cozy soft volume
+      this.masterGain.connect(this.ctx.destination);
+    }
     
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    this.ctx = new AudioContextClass();
-    
-    this.masterGain = this.ctx.createGain();
-    // Set initial volume
-    this.masterGain.gain.value = this.isMuted ? 0 : 0.15; // cozy soft volume
-    this.masterGain.connect(this.ctx.destination);
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(err => console.log('Autoplay context resume attempt inside initCtx:', err));
+    }
+  }
+
+  resumeContext() {
+    this.initCtx();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume()
+        .then(() => {
+          console.log('AudioContext resumed successfully via user gesture.');
+          if (!this.isMuted) {
+            this.startBGM();
+          }
+        })
+        .catch(err => console.error('Failed to resume AudioContext:', err));
+    } else if (this.ctx && this.ctx.state === 'running') {
+      if (!this.isMuted && !this.bgmInterval) {
+        this.startBGM();
+      }
+    }
   }
 
   setMute(muted: boolean) {
@@ -39,16 +70,16 @@ class SoundManager {
       localStorage.setItem('sudoku_muted', String(muted));
     }
 
-    if (!this.ctx) this.initCtx();
+    this.initCtx();
     
-    if (this.masterGain) {
-      this.masterGain.gain.setValueAtTime(muted ? 0 : 0.15, this.ctx!.currentTime);
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(muted ? 0 : 0.15, this.ctx.currentTime);
     }
 
     if (muted) {
       this.stopBGM();
     } else {
-      this.startBGM();
+      this.resumeContext();
     }
   }
 
